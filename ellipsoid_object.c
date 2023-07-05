@@ -139,7 +139,7 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 						tri_list[num_triangles * 10 + 6] = x_const_0 * cos(phi_1);  // x3
 						tri_list[num_triangles * 10 + 7] = y_const_0 * sin(phi_1); // y3
 						tri_list[num_triangles * 10 + 8] = z_val_0;   // z3
-						tri_list[num_triangles * 10 + 9] = 000000.0;   // exact 0, CSG 1, refractive, 3-1 invisible
+						tri_list[num_triangles * 10 + 9] = 010000.0;   // exact 0, CSG 1, refractive, 3-1 invisible
 						num_triangles++;
 
 						/* Mirror */
@@ -152,7 +152,7 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 						tri_list[num_triangles * 10 + 6] = x_const_0 * cos(phi_1);  // x3
 						tri_list[num_triangles * 10 + 7] = y_const_0 * sin(phi_1); // y3
 						tri_list[num_triangles * 10 + 8] = -z_val_0;   // z3
-						tri_list[num_triangles * 10 + 9] = 000000.0;   // exact 0, CSG 1, refractive, 3-1 invisible
+						tri_list[num_triangles * 10 + 9] = 010000.0;   // exact 0, CSG 1, refractive, 3-1 invisible
 						num_triangles++;
 					}
 				}
@@ -176,7 +176,7 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 						tri_list[num_triangles * 10 + 6] = x_const_0 * cos(phi_0);  // x3
 						tri_list[num_triangles * 10 + 7] = y_const_0 * sin(phi_0); // y3
 						tri_list[num_triangles * 10 + 8] = z_val_0;   // z3
-						tri_list[num_triangles * 10 + 9] = 000002.0;   // exact 0, CSG 1, refractive, 3-1 invisible
+						tri_list[num_triangles * 10 + 9] = 010002.0;   // exact 0, CSG 1, refractive, 3-1 invisible
 						num_triangles++;
 
 						tri_list[num_triangles * 10 + 0] = x_const_1 * cos(phi_1);   // x1
@@ -188,7 +188,7 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 						tri_list[num_triangles * 10 + 6] = x_const_0 * cos(phi_1);  // x3
 						tri_list[num_triangles * 10 + 7] = y_const_0 * sin(phi_1); // y3
 						tri_list[num_triangles * 10 + 8] = z_val_0;   // z3
-						tri_list[num_triangles * 10 + 9] = 000001.0;   // exact 0, CSG 1, refractive, 3-1 invisible
+						tri_list[num_triangles * 10 + 9] = 010001.0;   // exact 0, CSG 1, refractive, 3-1 invisible
 						num_triangles++;
 
 						/* Mirror */
@@ -201,7 +201,7 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 						tri_list[num_triangles * 10 + 6] = x_const_0 * cos(phi_0);  // x3
 						tri_list[num_triangles * 10 + 7] = y_const_0 * sin(phi_0); // y3
 						tri_list[num_triangles * 10 + 8] = -z_val_0;   // z3
-						tri_list[num_triangles * 10 + 9] = 000002.0;   // exact 0, CSG 1, refractive, 3-1 invisible
+						tri_list[num_triangles * 10 + 9] = 010002.0;   // exact 0, CSG 1, refractive, 3-1 invisible
 						num_triangles++;
 
 						tri_list[num_triangles * 10 + 0] = x_const_1 * cos(phi_1);   // x1
@@ -213,7 +213,7 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 						tri_list[num_triangles * 10 + 6] = x_const_0 * cos(phi_1);  // x3
 						tri_list[num_triangles * 10 + 7] = y_const_0 * sin(phi_1); // y3
 						tri_list[num_triangles * 10 + 8] = -z_val_0;   // z3
-						tri_list[num_triangles * 10 + 9] = 000001.0;   // exact 0, CSG 1, refractive, 3-1 invisible
+						tri_list[num_triangles * 10 + 9] = 010001.0;   // exact 0, CSG 1, refractive, 3-1 invisible
 						num_triangles++;
 					}
 				}
@@ -226,7 +226,99 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 		/* iterate to exact solution given starting point */
 		case 2:
 			{
-			
+			/*
+			We are giving starting data, and must compute the distance to the actual surface.
+			We also need to compute the normal vector at the point.
+
+			This is simple iteration. All surfaces must be described as:
+			F(x,y,z) = 0
+			We will also need Fx = dF/dx, Fy = dF/dy, and Fz = dF/dz
+			For the cylindrical face, we have set the triangles to exact = 1
+			F  = R*R - X*X - Y*Y
+			Fx = -2X
+			Fy = -2Y
+			Fz = 0.0
+
+			then compute
+			Fp = Fx*l + Fy*m + Fz*n where l, m, and n are the ray cosines
+
+			the propagation distance is just
+			delt = -F/Fp;
+			keep a running total on the position
+			t += delt;
+
+			increment the ray coordinates
+			x += l*delt;
+			y += m*delt;
+			z += n*delt;
+
+			repeat until delt is small!
+
+			The data ZEMAX sends is formatted as follows:
+			data[2], data[3], data[4] = x, y, z
+			data[5], data[6], data[7] = l, m, n
+			data[8] = exact code
+
+			*/
+				switch ((int)data[8])
+				{
+					default:
+						/* no need to iterate, assume exact solution is on flat triangle face */
+						break;
+					case 1:
+					{
+						int loop;
+						double x, y, z, l, m, n, t, delt, F, Fx, Fy, Fz, Fp;
+
+						x = data[2];
+						y = data[3];
+						z = data[4];
+						l = data[5];
+						m = data[6];
+						n = data[7];
+						t = 0.0;
+						delt = 100.0; /* any big number to start */
+						loop = 0; /* loop is to prevent infinite loops, which will HANG ZEMAX! */
+
+						while (fabs(delt) > 1E-10 && loop < 200)
+						{
+							loop++;
+
+							F = x * x / ( aa * aa ) + y * y / ( bb * bb ) + z * z / ( cc * cc) - 1;
+							Fx = 2.0 * x / (aa * aa);
+							Fy = 2.0 * y / (bb * bb);
+							Fz = 2.0 * z / (cc * cc);
+							Fp = Fx * l + Fy * m + Fz * n;
+
+							delt = -F / Fp;
+							t += delt;
+
+							x += l * delt;
+							y += m * delt;
+							z += n * delt;
+						}
+
+						/* we have converged, hopefully */
+						if (fabs(delt) > 1E-8)
+						{
+							/* assume ray misses */
+							return -1;
+						}
+
+						/* normalize Fx, Fy, and Fz to get the normal vector */
+						Fp = sqrt(Fx * Fx + Fy * Fy + Fz * Fz);
+						if (Fp == 0.0) Fp = 1.0; /* this is not possible for a real surface, but better safe than sorry! */
+						Fx /= Fp;
+						Fy /= Fp;
+						Fz /= Fp;
+						data[10] = t;
+						data[11] = Fx;
+						data[12] = Fy;
+						data[13] = Fz;
+						return 0;
+					}
+					break;
+				}
 			}
 			break;
 
