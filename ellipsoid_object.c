@@ -3,16 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-/*
-Written by Kenneth E. Moore
-January 17, 2003
-Modified December 16, 2003 to support the "diffractive flag" on data[12].
-Modified July 29, 2005 to support the "safe values" code = 3.
-*/
-
-// modified KEM 4-12-2006 to include coating placeholders, safe data moved to code = 4
-
-
 int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tri_list);
 int __declspec(dllexport) APIENTRY UserParamNames(char *data);
 
@@ -36,25 +26,28 @@ data = the parameter number whose name is requested, stored as an ASCII integer;
 
 */
 
-/*
-
-This DLL models a half cylinder. The parameters are the length and radius of the cylinder.
-The number of facets to use in approximating the curve of the cylinder is also a user definable parameter.
-
-*/
-
 int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tri_list) {
-	int code, n_theta, n_phi;
+	int code, n_theta, n_phi, is_volume;
 	double aa, bb, cc;
 
+	/* Semi-axes lengths */
 	aa = data[101];
 	bb = data[102];
 	cc = data[103];
 
+	/* Sampling */
 	n_theta = (int)data[104];
 	n_phi = (int)data[105];
 
-	/* do some basic error trapping and handling */
+	/* Volume flag */
+	if (data[106] > 0.0) {
+		is_volume = 1;
+	}
+	else {
+		is_volume = 0;
+	}
+
+	/* Basic error handling */
 	if (aa <= 0.0) aa = 1.0;
 	if (bb <= 0.0) bb = 1.0;
 	if (cc <= 0.0) cc = 1.0;
@@ -62,7 +55,7 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 	if (n_phi < 3) n_phi = 10;
 
 	/* what we do now depends upon what was requested */
-	code = (int) data[1];
+	code = (int)data[1];
 
 	switch(code) {
 		/* basic data */
@@ -70,10 +63,10 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 			/* Compute the total number of triangular facets used to render and trace this object */
 			/* we need N on each end cap, 2N along the face, and 2 on the flat back */
 			/* put this value in data[10] */
-			data[10] = 2 * n_phi;
+			data[10] = (double) 2 * ( n_theta - 1 ) * n_phi;
 			
 			/* is this object a solid? put 1 in data[11], use 0 if shell */
-			data[11] = 1;
+			data[11] = is_volume;
 
 			/* is this object potentially diffractive? put in data[12] the CSG number that is diffractive, cannot use 0. Use 0 if not diffractive */
 			data[12] = 0;
@@ -118,7 +111,7 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 			*/
 
 			int num_triangles;
-			double x_const, y_const, phi_0, phi_1;
+			double x_const_0, x_const_1, y_const_0, y_const_1, phi_0, phi_1, z_val_0, z_val_1;
 
 			num_triangles = 0;
 
@@ -126,46 +119,105 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 			double north_pole[3] = { 0.0, 0.0, cc };
 			double south_pole[3] = { 0.0, 0.0, -cc };
 
-			/* Z coordinate of cap layers */
-			double north_cap_z = cc * cos( PI / n_theta );
-			double south_cap_z = -north_cap_z;
+			for (int jj = 1; jj < n_theta / 2 + 1; jj++) {
+				x_const_0 = aa * sin( jj * PI / n_theta );
+				y_const_0 = bb * sin( jj * PI / n_theta );
+				z_val_0 = cc * cos( jj * PI / n_theta );
 
-			x_const = aa * sin(PI / n_theta);
-			y_const = bb * sin(PI / n_theta);
+				if (jj == 1) {
+					/* Create the caps with triangles */
+					for (int ii = 0; ii < n_phi; ii++) {
+						phi_0 = (double)ii / n_phi * 2 * PI;
+						phi_1 = ((double)ii + 1) / n_phi * 2 * PI;
 
-			/* Create the caps with triangles */
-			for (int ii = 0; ii < n_phi; ii++) {
-				phi_0 = (double)ii / n_phi * 2 * PI;
-				phi_1 = ((double)ii + 1) / n_phi * 2 * PI;
+						tri_list[num_triangles * 10 + 0] = north_pole[0];   // x1
+						tri_list[num_triangles * 10 + 1] = north_pole[1]; // y1
+						tri_list[num_triangles * 10 + 2] = north_pole[2]; // z1
+						tri_list[num_triangles * 10 + 3] = x_const_0 * cos(phi_0);   // x2
+						tri_list[num_triangles * 10 + 4] = y_const_0 * sin(phi_0); // y2
+						tri_list[num_triangles * 10 + 5] = z_val_0;   // z2
+						tri_list[num_triangles * 10 + 6] = x_const_0 * cos(phi_1);  // x3
+						tri_list[num_triangles * 10 + 7] = y_const_0 * sin(phi_1); // y3
+						tri_list[num_triangles * 10 + 8] = z_val_0;   // z3
+						tri_list[num_triangles * 10 + 9] = 000000.0;   // exact 0, CSG 1, refractive, 3-1 invisible
+						num_triangles++;
 
-				tri_list[num_triangles * 10 + 0] = north_pole[0];   // x1
-				tri_list[num_triangles * 10 + 1] = north_pole[1]; // y1
-				tri_list[num_triangles * 10 + 2] = north_pole[2]; // z1
-				tri_list[num_triangles * 10 + 3] = x_const * cos( phi_0 );   // x2
-				tri_list[num_triangles * 10 + 4] = y_const * sin( phi_0 ); // y2
-				tri_list[num_triangles * 10 + 5] = north_cap_z;   // z2
-				tri_list[num_triangles * 10 + 6] = x_const * cos( phi_1 );  // x3
-				tri_list[num_triangles * 10 + 7] = y_const * sin( phi_1 ); // y3
-				tri_list[num_triangles * 10 + 8] = north_cap_z;   // z3
-				tri_list[num_triangles * 10 + 9] = 000000.0;   // exact 0, CSG 1, refractive, 3-1 invisible
-				num_triangles++;
+						/* Mirror */
+						tri_list[num_triangles * 10 + 0] = south_pole[0];   // x1
+						tri_list[num_triangles * 10 + 1] = south_pole[1]; // y1
+						tri_list[num_triangles * 10 + 2] = south_pole[2]; // z1
+						tri_list[num_triangles * 10 + 3] = x_const_0 * cos(phi_0);   // x2
+						tri_list[num_triangles * 10 + 4] = y_const_0 * sin(phi_0); // y2
+						tri_list[num_triangles * 10 + 5] = -z_val_0;   // z2
+						tri_list[num_triangles * 10 + 6] = x_const_0 * cos(phi_1);  // x3
+						tri_list[num_triangles * 10 + 7] = y_const_0 * sin(phi_1); // y3
+						tri_list[num_triangles * 10 + 8] = -z_val_0;   // z3
+						tri_list[num_triangles * 10 + 9] = 000000.0;   // exact 0, CSG 1, refractive, 3-1 invisible
+						num_triangles++;
+					}
+				}
+				else
+				{
+					x_const_1 = aa * sin(((double)jj - 1) * PI / n_theta);
+					y_const_1 = bb * sin(((double)jj - 1) * PI / n_theta);
+					z_val_1 = cc * cos(((double)jj - 1) * PI / n_theta);
 
-				tri_list[num_triangles * 10 + 0] = south_pole[0];   // x1
-				tri_list[num_triangles * 10 + 1] = south_pole[1]; // y1
-				tri_list[num_triangles * 10 + 2] = south_pole[2]; // z1
-				tri_list[num_triangles * 10 + 3] = x_const * cos(phi_0);   // x2
-				tri_list[num_triangles * 10 + 4] = y_const * sin(phi_0); // y2
-				tri_list[num_triangles * 10 + 5] = south_cap_z;   // z2
-				tri_list[num_triangles * 10 + 6] = x_const * cos(phi_1);  // x3
-				tri_list[num_triangles * 10 + 7] = y_const * sin(phi_1); // y3
-				tri_list[num_triangles * 10 + 8] = south_cap_z;   // z3
-				tri_list[num_triangles * 10 + 9] = 000000.0;   // exact 0, CSG 1, refractive, 3-1 invisible
-				num_triangles++;
+					for (int ii = 0; ii < n_phi; ii++)
+					{
+						phi_0 = (double)ii / n_phi * 2 * PI;
+						phi_1 = ((double)ii + 1) / n_phi * 2 * PI;
+						
+						tri_list[num_triangles * 10 + 0] = x_const_1 * cos(phi_0);   // x1
+						tri_list[num_triangles * 10 + 1] = y_const_1 * sin(phi_0); // y1
+						tri_list[num_triangles * 10 + 2] = z_val_1; // z1
+						tri_list[num_triangles * 10 + 3] = x_const_1 * cos(phi_1);   // x2
+						tri_list[num_triangles * 10 + 4] = y_const_1 * sin(phi_1); // y2
+						tri_list[num_triangles * 10 + 5] = z_val_1;   // z2
+						tri_list[num_triangles * 10 + 6] = x_const_0 * cos(phi_0);  // x3
+						tri_list[num_triangles * 10 + 7] = y_const_0 * sin(phi_0); // y3
+						tri_list[num_triangles * 10 + 8] = z_val_0;   // z3
+						tri_list[num_triangles * 10 + 9] = 000002.0;   // exact 0, CSG 1, refractive, 3-1 invisible
+						num_triangles++;
+
+						tri_list[num_triangles * 10 + 0] = x_const_1 * cos(phi_1);   // x1
+						tri_list[num_triangles * 10 + 1] = y_const_1 * sin(phi_1); // y1
+						tri_list[num_triangles * 10 + 2] = z_val_1; // z1
+						tri_list[num_triangles * 10 + 3] = x_const_0 * cos(phi_0);   // x2
+						tri_list[num_triangles * 10 + 4] = y_const_0 * sin(phi_0); // y2
+						tri_list[num_triangles * 10 + 5] = z_val_0;   // z2
+						tri_list[num_triangles * 10 + 6] = x_const_0 * cos(phi_1);  // x3
+						tri_list[num_triangles * 10 + 7] = y_const_0 * sin(phi_1); // y3
+						tri_list[num_triangles * 10 + 8] = z_val_0;   // z3
+						tri_list[num_triangles * 10 + 9] = 000001.0;   // exact 0, CSG 1, refractive, 3-1 invisible
+						num_triangles++;
+
+						/* Mirror */
+						tri_list[num_triangles * 10 + 0] = x_const_1 * cos(phi_0);   // x1
+						tri_list[num_triangles * 10 + 1] = y_const_1 * sin(phi_0); // y1
+						tri_list[num_triangles * 10 + 2] = -z_val_1; // z1
+						tri_list[num_triangles * 10 + 3] = x_const_1 * cos(phi_1);   // x2
+						tri_list[num_triangles * 10 + 4] = y_const_1 * sin(phi_1); // y2
+						tri_list[num_triangles * 10 + 5] = -z_val_1;   // z2
+						tri_list[num_triangles * 10 + 6] = x_const_0 * cos(phi_0);  // x3
+						tri_list[num_triangles * 10 + 7] = y_const_0 * sin(phi_0); // y3
+						tri_list[num_triangles * 10 + 8] = -z_val_0;   // z3
+						tri_list[num_triangles * 10 + 9] = 000002.0;   // exact 0, CSG 1, refractive, 3-1 invisible
+						num_triangles++;
+
+						tri_list[num_triangles * 10 + 0] = x_const_1 * cos(phi_1);   // x1
+						tri_list[num_triangles * 10 + 1] = y_const_1 * sin(phi_1); // y1
+						tri_list[num_triangles * 10 + 2] = -z_val_1; // z1
+						tri_list[num_triangles * 10 + 3] = x_const_0 * cos(phi_0);   // x2
+						tri_list[num_triangles * 10 + 4] = y_const_0 * sin(phi_0); // y2
+						tri_list[num_triangles * 10 + 5] = -z_val_0;   // z2
+						tri_list[num_triangles * 10 + 6] = x_const_0 * cos(phi_1);  // x3
+						tri_list[num_triangles * 10 + 7] = y_const_0 * sin(phi_1); // y3
+						tri_list[num_triangles * 10 + 8] = -z_val_0;   // z3
+						tri_list[num_triangles * 10 + 9] = 000001.0;   // exact 0, CSG 1, refractive, 3-1 invisible
+						num_triangles++;
+					}
+				}
 			}
-
-			/* Create next layer (temporary) */
-
-
 
 			data[10] = num_triangles; /* how many we actually wrote out */
 			return 0;
@@ -215,6 +267,7 @@ int __declspec(dllexport) APIENTRY UserParamNames(char *data) {
 	if (i == 3) strcpy_s(data, 9, "c");
 	if (i == 4) strcpy_s(data, 8, "# theta");
 	if (i == 5) strcpy_s(data, 6, "# phi");
+	if (i == 6) strcpy_s(data, 13, "Is a volume?");
 
 	return 0;
 }
