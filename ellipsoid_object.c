@@ -27,7 +27,7 @@ data = the parameter number whose name is requested, stored as an ASCII integer;
 */
 
 int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tri_list) {
-	int code, n_theta, n_phi, is_volume;
+	int code, n_theta, n_phi, is_volume, is_reflective;
 	double aa, bb, cc;
 
 	/* Semi-axes lengths */
@@ -45,6 +45,14 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 	}
 	else {
 		is_volume = 0;
+	}
+
+	/* Reflective flag */
+	if (data[107] > 0.0) {
+		is_reflective = 10.0;
+	}
+	else {
+		is_reflective = 0.0;
 	}
 
 	/* Basic error handling */
@@ -139,7 +147,7 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 						tri_list[num_triangles * 10 + 6] = x_const_0 * cos(phi_1);  // x3
 						tri_list[num_triangles * 10 + 7] = y_const_0 * sin(phi_1); // y3
 						tri_list[num_triangles * 10 + 8] = z_val_0;   // z3
-						tri_list[num_triangles * 10 + 9] = 010000.0;   // exact 0, CSG 1, refractive, 3-1 invisible
+						tri_list[num_triangles * 10 + 9] = 010000.0 + is_reflective;   // exact 0, CSG 1, refractive, 3-1 invisible
 						num_triangles++;
 
 						/* Mirror */
@@ -152,7 +160,7 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 						tri_list[num_triangles * 10 + 6] = x_const_0 * cos(phi_1);  // x3
 						tri_list[num_triangles * 10 + 7] = y_const_0 * sin(phi_1); // y3
 						tri_list[num_triangles * 10 + 8] = -z_val_0;   // z3
-						tri_list[num_triangles * 10 + 9] = 010000.0;   // exact 0, CSG 1, refractive, 3-1 invisible
+						tri_list[num_triangles * 10 + 9] = 010000.0 + is_reflective;   // exact 0, CSG 1, refractive, 3-1 invisible
 						num_triangles++;
 					}
 				}
@@ -176,7 +184,7 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 						tri_list[num_triangles * 10 + 6] = x_const_0 * cos(phi_0);  // x3
 						tri_list[num_triangles * 10 + 7] = y_const_0 * sin(phi_0); // y3
 						tri_list[num_triangles * 10 + 8] = z_val_0;   // z3
-						tri_list[num_triangles * 10 + 9] = 010002.0;   // exact 0, CSG 1, refractive, 3-1 invisible
+						tri_list[num_triangles * 10 + 9] = 010002.0 + is_reflective;   // exact 0, CSG 1, refractive, 3-1 invisible
 						num_triangles++;
 
 						tri_list[num_triangles * 10 + 0] = x_const_1 * cos(phi_1);   // x1
@@ -188,7 +196,7 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 						tri_list[num_triangles * 10 + 6] = x_const_0 * cos(phi_1);  // x3
 						tri_list[num_triangles * 10 + 7] = y_const_0 * sin(phi_1); // y3
 						tri_list[num_triangles * 10 + 8] = z_val_0;   // z3
-						tri_list[num_triangles * 10 + 9] = 010001.0;   // exact 0, CSG 1, refractive, 3-1 invisible
+						tri_list[num_triangles * 10 + 9] = 010001.0 + is_reflective;   // exact 0, CSG 1, refractive, 3-1 invisible
 						num_triangles++;
 
 						/* Mirror */
@@ -201,7 +209,7 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 						tri_list[num_triangles * 10 + 6] = x_const_0 * cos(phi_0);  // x3
 						tri_list[num_triangles * 10 + 7] = y_const_0 * sin(phi_0); // y3
 						tri_list[num_triangles * 10 + 8] = -z_val_0;   // z3
-						tri_list[num_triangles * 10 + 9] = 010002.0;   // exact 0, CSG 1, refractive, 3-1 invisible
+						tri_list[num_triangles * 10 + 9] = 010002.0 + is_reflective;   // exact 0, CSG 1, refractive, 3-1 invisible
 						num_triangles++;
 
 						tri_list[num_triangles * 10 + 0] = x_const_1 * cos(phi_1);   // x1
@@ -213,7 +221,7 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 						tri_list[num_triangles * 10 + 6] = x_const_0 * cos(phi_1);  // x3
 						tri_list[num_triangles * 10 + 7] = y_const_0 * sin(phi_1); // y3
 						tri_list[num_triangles * 10 + 8] = -z_val_0;   // z3
-						tri_list[num_triangles * 10 + 9] = 010001.0;   // exact 0, CSG 1, refractive, 3-1 invisible
+						tri_list[num_triangles * 10 + 9] = 010001.0 + is_reflective;   // exact 0, CSG 1, refractive, 3-1 invisible
 						num_triangles++;
 					}
 				}
@@ -339,6 +347,8 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 			data[103] = cc;
 			data[104] = (double)n_theta;
 			data[105] = (double)n_phi;
+			data[106] = 1.0;
+			data[107] = 0.0;
 			return 0;
 		}
 
@@ -360,6 +370,7 @@ int __declspec(dllexport) APIENTRY UserParamNames(char *data) {
 	if (i == 4) strcpy_s(data, 8, "# theta");
 	if (i == 5) strcpy_s(data, 6, "# phi");
 	if (i == 6) strcpy_s(data, 13, "Is a volume?");
+	if (i == 7) strcpy_s(data, 15, "Is reflective?");
 
 	return 0;
 }
